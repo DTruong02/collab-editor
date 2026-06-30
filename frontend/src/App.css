@@ -23,3 +23,133 @@ body {
 .page h1 {
   margin-top: 0;
 }
+
+/* Phase 1 spike — minimal collaborative textarea */
+.spike-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: #f0f2f5;
+}
+
+.spike-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 52px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  flex-shrink: 0;
+  border-bottom: 1px solid #2e2e50;
+}
+
+.spike-logo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #7c83fd;
+}
+
+.spike-separator {
+  color: #444;
+}
+
+.spike-room-label strong {
+  color: #a5b4fc;
+}
+
+.spike-spacer {
+  flex: 1;
+}
+
+.spike-status {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #2e2e50;
+}
+
+.spike-status--connected {
+  color: #6ee7b7;
+}
+
+.spike-status--connecting {
+  color: #fcd34d;
+}
+
+.spike-status--disconnected {
+  color: #fca5a5;
+}
+
+.spike-users {
+  padding: 6px 16px;
+  background: #13131f;
+  font-size: 12px;
+  color: #888;
+  flex-shrink: 0;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid #2e2e50;
+}
+
+.spike-users-label {
+  color: #555;
+}
+
+.spike-user-badge {
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.spike-editor-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.spike-editor {
+  flex: 1;
+  width: 100%;
+  padding: 16px 20px;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #e8e8f0;
+  background: #1e1e2e;
+  border: 1px solid #2e2e50;
+  border-radius: 8px;
+  resize: none;
+  outline: none;
+}
+
+.spike-editor:focus {
+  border-color: #7c83fd;
+  box-shadow: 0 0 0 3px rgba(124, 131, 253, 0.15);
+}
+
+.spike-editor:disabled {
+  opacity: 0.6;
+}
+
+.spike-hint {
+  padding: 8px 16px;
+  font-size: 11px;
+  color: #555;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.spike-hint code {
+  background: #2e2e50;
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: #a5b4fc;
+}
