@@ -3,11 +3,14 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
+      network: host
     ports:
       - "8080:8080"
     environment:
       PORT: "8080"
       DATABASE_PATH: /data/collab.db
+      SESSION_SECRET: dev-session-secret-change-in-prod
+      ALLOWED_ORIGINS: http://localhost:5173
     volumes:
       - ./backend:/app
       - backend_data:/data
