@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { ConnectionBanner } from '../components/ConnectionBanner'
 import { Editor } from '../components/Editor'
 import { PresenceBar } from '../components/PresenceBar'
 import { useRequireAuth } from '../hooks/useAuth'
@@ -27,6 +28,7 @@ export function EditorPage() {
   const yjs = useYjsDoc(id ?? '', user?.username ?? '')
   const { status: onlineStatus, message: statusMessage } = useOnlineStatus(
     yjs?.connectionStatus,
+    { reconnectAttempts: yjs?.reconnectAttempts },
   )
 
   useEffect(() => {
@@ -110,6 +112,8 @@ export function EditorPage() {
         </div>
         {yjs ? <PresenceBar users={yjs.users} /> : null}
       </header>
+
+      <ConnectionBanner status={onlineStatus} message={statusMessage} />
 
       <div className="editor-page__main">
         {yjs ? (

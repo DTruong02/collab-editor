@@ -83,16 +83,34 @@ func main() {
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
-	<-stop
+	sig := <-stop
+	slog.Info("shutdown signal received, draining connections", "signal", sig.String())
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownTimeout := 10 * time.Second
+	if raw := os.Getenv("SHUTDOWN_TIMEOUT"); raw != "" {
+		if parsed, err := time.ParseDuration(raw); err == nil && parsed > 0 {
+			shutdownTimeout = parsed
+		} else if err != nil {
+			slog.Warn("invalid SHUTDOWN_TIMEOUT, using default", "value", raw, "error", err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
 	if err := wsServer.Shutdown(ctx); err != nil {
-		slog.Error("websocket shutdown failed", "error", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			slog.Warn("websocket shutdown timed out", "error", err)
+		} else {
+			slog.Error("websocket shutdown failed", "error", err)
+		}
 	}
 	if err := server.Shutdown(ctx); err != nil {
-		slog.Error("http shutdown failed", "error", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			slog.Warn("http shutdown timed out", "error", err)
+		} else {
+			slog.Error("http shutdown failed", "error", err)
+		}
 	}
 
 	slog.Info("server stopped")

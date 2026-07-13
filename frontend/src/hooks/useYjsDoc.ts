@@ -3,6 +3,7 @@ import * as Y from 'yjs'
 import { WebsocketProvider } from 'y-websocket'
 import type { Awareness } from 'y-protocols/awareness'
 import { userColorFromUsername } from '../lib/colors'
+import { mapProviderStatus, WS_PROVIDER_OPTS } from '../lib/wsProvider'
 import { yjsWsBaseUrl } from '../lib/wsUrl'
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
@@ -20,6 +21,7 @@ type YjsDocState = {
   awareness: Awareness
   synced: boolean
   connectionStatus: ConnectionStatus
+  reconnectAttempts: number
   users: AwarenessUser[]
 }
 
@@ -38,9 +40,12 @@ export function useYjsDoc(docId: string, username: string): YjsDocState | null {
 
     const ydoc = new Y.Doc()
     const ytext = ydoc.getText('content')
-    const provider = new WebsocketProvider(yjsWsBaseUrl(), docId, ydoc, {
-      connect: true,
-    })
+    const provider = new WebsocketProvider(
+      yjsWsBaseUrl(),
+      docId,
+      ydoc,
+      WS_PROVIDER_OPTS,
+    )
     const { awareness } = provider
     const colors = userColorFromUsername(username)
 
@@ -75,9 +80,34 @@ export function useYjsDoc(docId: string, username: string): YjsDocState | null {
         awareness,
         synced: prev?.synced ?? provider.synced,
         connectionStatus: prev?.connectionStatus ?? 'connecting',
+        reconnectAttempts: prev?.reconnectAttempts ?? 0,
         users: prev?.users ?? collectUsers(),
         ...patch,
       }))
+    }
+
+    const pauseReconnect = () => {
+      provider.shouldConnect = false
+      provider.disconnect()
+      patchState({ connectionStatus: 'disconnected' })
+    }
+
+    const resumeReconnect = () => {
+      provider.shouldConnect = true
+      provider.connect()
+    }
+
+    const onBrowserOffline = () => pauseReconnect()
+    const onBrowserOnline = () => {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        resumeReconnect()
+      }
+    }
+
+    window.addEventListener('offline', onBrowserOffline)
+    window.addEventListener('online', onBrowserOnline)
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      pauseReconnect()
     }
 
     const updateUsers = () => {
@@ -86,7 +116,23 @@ export function useYjsDoc(docId: string, username: string): YjsDocState | null {
 
     const onStatus = ({ status }: { status: string }) => {
       patchState({
-        connectionStatus: status === 'connected' ? 'connected' : 'disconnected',
+        connectionStatus: mapProviderStatus(status),
+        reconnectAttempts:
+          status === 'connected' ? 0 : provider.wsUnsuccessfulReconnects,
+      })
+    }
+
+    const onConnectionClose = () => {
+      patchState({
+        connectionStatus: 'disconnected',
+        reconnectAttempts: provider.wsUnsuccessfulReconnects,
+      })
+    }
+
+    const onConnectionError = () => {
+      patchState({
+        connectionStatus: 'disconnected',
+        reconnectAttempts: provider.wsUnsuccessfulReconnects,
       })
     }
 
@@ -95,12 +141,18 @@ export function useYjsDoc(docId: string, username: string): YjsDocState | null {
     }
 
     provider.on('status', onStatus)
+    provider.on('connection-close', onConnectionClose)
+    provider.on('connection-error', onConnectionError)
     provider.on('sync', onSync)
     awareness.on('change', updateUsers)
 
     return () => {
+      window.removeEventListener('offline', onBrowserOffline)
+      window.removeEventListener('online', onBrowserOnline)
       awareness.off('change', updateUsers)
       provider.off('status', onStatus)
+      provider.off('connection-close', onConnectionClose)
+      provider.off('connection-error', onConnectionError)
       provider.off('sync', onSync)
       provider.destroy()
       ydoc.destroy()

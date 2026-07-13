@@ -7,7 +7,15 @@ export type OnlineStatus =
   | 'reconnecting'
   | 'offline'
 
-export function useOnlineStatus(wsStatus: ConnectionStatus | undefined) {
+type UseOnlineStatusOptions = {
+  reconnectAttempts?: number
+}
+
+export function useOnlineStatus(
+  wsStatus: ConnectionStatus | undefined,
+  options: UseOnlineStatusOptions = {},
+) {
+  const { reconnectAttempts = 0 } = options
   const [browserOnline, setBrowserOnline] = useState(
     () => typeof navigator !== 'undefined' && navigator.onLine,
   )
@@ -35,10 +43,12 @@ export function useOnlineStatus(wsStatus: ConnectionStatus | undefined) {
     status === 'offline'
       ? 'Offline — changes saved locally, will sync on reconnect'
       : status === 'reconnecting'
-        ? 'Reconnecting…'
+        ? reconnectAttempts > 0
+          ? `Reconnecting… (attempt ${reconnectAttempts})`
+          : 'Reconnecting…'
         : status === 'connecting'
           ? 'Connecting…'
           : 'Connected'
 
-  return { browserOnline, status, message }
+  return { browserOnline, status, message, reconnectAttempts }
 }
