@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/danny/collab-editor/backend/internal/auth"
 	"github.com/danny/collab-editor/backend/internal/db"
 	"github.com/danny/collab-editor/backend/internal/persistence"
+	"github.com/danny/collab-editor/backend/internal/staticserve"
 	"github.com/reearth/ygo/provider/websocket"
 )
 
@@ -34,6 +36,12 @@ func main() {
 	if dbPath == "" {
 		dbPath = "collab.db"
 	}
+	if dir := filepath.Dir(dbPath); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			slog.Error("database directory create failed", "error", err, "dir", dir)
+			os.Exit(1)
+		}
+	}
 
 	database, err := db.Open(dbPath)
 	if err != nil {
@@ -42,13 +50,15 @@ func main() {
 	}
 	defer database.Close()
 
+	staticDir := strings.TrimSpace(os.Getenv("STATIC_DIR"))
+
 	secret := sessionSecret()
 	sessions := auth.NewManager(secret, os.Getenv("COOKIE_SECURE") == "true")
 	persist := persistence.NewSQLiteAdapter(database)
 	apiHandler := api.NewHandler(database, sessions)
 
 	wsServer := websocket.NewServerWithPersistence(persist)
-	wsServer.AllowedOrigins = allowedOrigins()
+	wsServer.AllowedOrigins = allowedOrigins(staticDir)
 	wsServer.AuthFunc = func(r *http.Request) bool {
 		room := r.PathValue("room")
 		if room == "" {
@@ -65,6 +75,13 @@ func main() {
 	})
 	api.Register(mux, apiHandler)
 	mux.Handle("/yjs/{room}", wsServer)
+	if staticDir != "" {
+		if _, err := os.Stat(filepath.Join(staticDir, "index.html")); err != nil {
+			slog.Error("STATIC_DIR missing index.html", "error", err, "dir", staticDir)
+			os.Exit(1)
+		}
+		mux.Handle("/", staticserve.New(staticDir))
+	}
 
 	addr := ":" + port
 	server := &http.Server{
@@ -74,7 +91,12 @@ func main() {
 	}
 
 	go func() {
-		slog.Info("server listening", "addr", addr, "database", dbPath, "allowed_origins", wsServer.AllowedOrigins)
+		slog.Info("server listening",
+			"addr", addr,
+			"database", dbPath,
+			"static_dir", staticDir,
+			"allowed_origins", wsServer.AllowedOrigins,
+		)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("server failed", "error", err)
 			os.Exit(1)
@@ -116,8 +138,12 @@ func main() {
 	slog.Info("server stopped")
 }
 
-func allowedOrigins() []string {
-	if raw := os.Getenv("ALLOWED_ORIGINS"); raw != "" {
+func allowedOrigins(staticDir string) []string {
+	if raw, ok := os.LookupEnv("ALLOWED_ORIGINS"); ok {
+		if strings.TrimSpace(raw) == "" {
+			// Explicit empty → same-origin check (ygo default when slice is empty).
+			return nil
+		}
 		parts := strings.Split(raw, ",")
 		out := make([]string, 0, len(parts))
 		for _, p := range parts {
@@ -126,6 +152,10 @@ func allowedOrigins() []string {
 			}
 		}
 		return out
+	}
+	// Single-container prod serves SPA from this process → same-origin WS is enough.
+	if staticDir != "" {
+		return nil
 	}
 	// Vite dev server origin; browser WS requests come from :5173 while API/WS is on :8080.
 	return []string{"http://localhost:5173"}

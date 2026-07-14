@@ -1,0 +1,21 @@
+# Railway deployment
+#
+# 1. Create a new Railway project from this repo (Dockerfile builder).
+# 2. Attach a volume mounted at /data (Settings → Volumes).
+# 3. Set variables (see README):
+#      DATABASE_PATH=/data/collab.db
+#      STATIC_DIR=/app/static
+#      SESSION_SECRET=<random 32+ bytes>
+#      COOKIE_SECURE=true
+#      PORT=8080
+# 4. Deploy. Health check hits /health.
+
+[build]
+  builder = "DOCKERFILE"
+  dockerfilePath = "Dockerfile"
+
+[deploy]
+  healthcheckPath = "/health"
+  healthcheckTimeout = 100
+  restartPolicyType = "ON_FAILURE"
+  restartPolicyMaxRetries = 5

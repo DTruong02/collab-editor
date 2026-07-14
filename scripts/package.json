@@ -1,0 +1,10 @@
+{
+  "name": "collab-editor-scripts",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "ws": "^8.18.3",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.31"
+  }
+}

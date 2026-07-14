@@ -1,0 +1,27 @@
+# Production single-container stack (optional).
+# Usage: docker compose -f docker-compose.prod.yml up --build
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DATABASE_PATH: /data/collab.db
+      STATIC_DIR: /app/static
+      SESSION_SECRET: prod-compose-session-secret-change-me
+      COOKIE_SECURE: "false"
+    volumes:
+      - collab_prod_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  collab_prod_data:
